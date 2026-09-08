@@ -78,6 +78,7 @@ namespace ApiSampleForSDLC.Controllers
                 Name = employee.Name,
                 Age = employee.Age,
                 Department = employee.Department
+                Email = employee.Email,
             };
 
             patchDoc.ApplyTo(employeeDto, ModelState);
@@ -89,6 +90,8 @@ namespace ApiSampleForSDLC.Controllers
             employee.Name = employeeDto.Name;
             employee.Age = employeeDto.Age;
             employee.Department = employeeDto.Department;
+            if (!string.IsNullOrWhiteSpace(employeeDto.Email))
+                employee.Email = employeeDto.Email;
 
             await _context.SaveChangesAsync();
             return NoContent();
