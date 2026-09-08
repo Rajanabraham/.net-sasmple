@@ -1,10 +1,23 @@
-﻿namespace ApiSampleForSDLC.Models
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace ApiSampleForSDLC.Models;
+
+public class Employee
 {
-    public class Employee
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Department { get; set; } = string.Empty;
-        public decimal Salary { get; set; }
-    }
+    [Key]
+    public int EmployeeId { get; set; }
+
+    [Required]
+    [MaxLength(100)]
+    public string FirstName { get; set; } = null!;
+
+    [Required]
+    [MaxLength(100)]
+    public string LastName { get; set; } = null!;
+
+    // Existing fields (e.g., Department, Salary) omitted for brevity
+
+    // Navigation property – an employee can have many email addresses
+    public ICollection<Email> Emails { get; set; } = new List<Email>();
 }
