@@ -1,11 +1,12 @@
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ApiSampleForSDLC.Models;
 
 namespace ApiSampleForSDLC.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class EmployeesController : ControllerBase
     {
         private readonly EmployeeContext _context;
@@ -17,36 +18,49 @@ namespace ApiSampleForSDLC.Controllers
 
         // GET: api/Employees
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Employee>>> GetAll()
+        public async Task<ActionResult<IEnumerable<Employee>>> GetEmployees()
         {
             return await _context.Employees.ToListAsync();
         }
 
         // GET: api/Employees/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Employee>> GetById(int id)
+        public async Task<ActionResult<Employee>> GetEmployee(int id)
         {
             var employee = await _context.Employees.FindAsync(id);
+
             if (employee == null)
+            {
                 return NotFound();
+            }
+
             return employee;
         }
 
         // POST: api/Employees
         [HttpPost]
-        public async Task<ActionResult<Employee>> Create(Employee employee)
+        public async Task<ActionResult<Employee>> PostEmployee(Employee employee)
         {
+            // Basic validation – ModelState already checks required fields & Email format
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             _context.Employees.Add(employee);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = employee.Id }, employee);
+
+            return CreatedAtAction(nameof(GetEmployee), new { id = employee.Id }, employee);
         }
 
         // PUT: api/Employees/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, Employee employee)
+        public async Task<IActionResult> PutEmployee(int id, Employee employee)
         {
             if (id != employee.Id)
-                return BadRequest();
+            {
+                return BadRequest("Id in URL does not match Id in body.");
+            }
 
             _context.Entry(employee).State = EntityState.Modified;
 
@@ -64,50 +78,66 @@ namespace ApiSampleForSDLC.Controllers
 
         // PATCH: api/Employees/5
         [HttpPatch("{id}")]
-        public async Task<IActionResult> Patch(int id, [FromBody] JsonPatchDocument<EmployeePatchDto> patchDoc)
+        public async Task<IActionResult> PatchEmployee(int id, JsonPatchDocument<EmployeePatchDto> patchDoc)
         {
             if (patchDoc == null)
+            {
                 return BadRequest();
+            }
 
             var employee = await _context.Employees.FindAsync(id);
             if (employee == null)
+            {
                 return NotFound();
+            }
 
-            var employeeDto = new EmployeePatchDto
+            var employeeToPatch = new EmployeePatchDto
             {
                 Name = employee.Name,
                 Age = employee.Age,
-                Department = employee.Department
+                Email = employee.Email
             };
 
-            patchDoc.ApplyTo(employeeDto, ModelState);
+            patchDoc.ApplyTo(employeeToPatch, ModelState);
 
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            if (!TryValidateModel(employeeToPatch))
+            {
+                return ValidationProblem(ModelState);
+            }
 
-            // map patched values back to entity
-            employee.Name = employeeDto.Name;
-            employee.Age = employeeDto.Age;
-            employee.Department = employeeDto.Department;
+            // Map patched values back onto the entity
+            employee.Name = employeeToPatch.Name ?? employee.Name;
+            employee.Age = employeeToPatch.Age ?? employee.Age;
+            employee.Email = employeeToPatch.Email ?? employee.Email;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException) when (!EmployeeExists(id))
+            {
+                return NotFound();
+            }
+
             return NoContent();
         }
 
         // DELETE: api/Employees/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> DeleteEmployee(int id)
         {
             var employee = await _context.Employees.FindAsync(id);
             if (employee == null)
+            {
                 return NotFound();
+            }
 
             _context.Employees.Remove(employee);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
-        private bool EmployeeExists(int id) =>
-            _context.Employees.Any(e => e.Id == id);
+        private bool EmployeeExists(int id) => _context.Employees.Any(e => e.Id == id);
     }
 }

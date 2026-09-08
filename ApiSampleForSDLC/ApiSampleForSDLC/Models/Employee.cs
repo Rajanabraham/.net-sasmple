@@ -1,10 +1,19 @@
-﻿namespace ApiSampleForSDLC.Models
+using System.ComponentModel.DataAnnotations;
+
+namespace ApiSampleForSDLC.Models
 {
     public class Employee
     {
         public int Id { get; set; }
+
+        [Required]
         public string Name { get; set; } = string.Empty;
-        public string Department { get; set; } = string.Empty;
-        public decimal Salary { get; set; }
+
+        [Range(18, 70)]
+        public int Age { get; set; }
+
+        // New Email field – optional but validated when provided
+        [EmailAddress]
+        public string? Email { get; set; }
     }
 }
