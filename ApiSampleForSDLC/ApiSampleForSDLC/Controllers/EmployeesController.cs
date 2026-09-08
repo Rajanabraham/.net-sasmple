@@ -1,82 +1,99 @@
-﻿using ApiSampleForSDLC.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ApiSampleForSDLC.Models;
 
-namespace ApiSampleForSDLC.Controllers
+namespace ApiSampleForSDLC.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeesController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class EmployeesController : ControllerBase
+    // In‑memory store – mimics a repository for demo / unit‑test purposes.
+    private static readonly List<Employee> _employees = new()
     {
-        private static readonly List<Employee> employees = new()
-    {
-        new Employee
-        {
-            Id = 1,
-            Name = "Rajan",
-            Department = ".NET",
-            Salary = 50000
-        }
+        new Employee { Id = 1, Name = "John Doe", Position = "Developer", Department = "Engineering", Salary = 85000 },
+        new Employee { Id = 2, Name = "Jane Smith", Position = "Tester", Department = "Quality Assurance", Salary = 65000 }
     };
 
-        [HttpGet]
-        public IActionResult GetAll()
-        {
-            return Ok(employees);
-        }
+    // GET: api/employees
+    [HttpGet]
+    public ActionResult<IEnumerable<Employee>> GetAll()
+    {
+        return Ok(_employees);
+    }
 
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
-        {
-            var employee = employees.FirstOrDefault(x => x.Id == id);
+    // GET: api/employees/{id}
+    [HttpGet("{id}")]
+    public ActionResult<Employee> Get(int id)
+    {
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
+        return Ok(employee);
+    }
 
-            if (employee == null)
-                return NotFound();
+    // POST: api/employees
+    [HttpPost]
+    public ActionResult<Employee> Create([FromBody] Employee employee)
+    {
+        if (employee == null)
+            return BadRequest();
 
-            return Ok(employee);
-        }
+        employee.Id = _employees.Max(e => e.Id) + 1;
+        _employees.Add(employee);
+        return CreatedAtAction(nameof(Get), new { id = employee.Id }, employee);
+    }
 
-        [HttpPost]
-        public IActionResult Create(Employee employee)
-        {
-            employee.Id = employees.Count == 0
-                ? 1
-                : employees.Max(x => x.Id) + 1;
+    // PUT: api/employees/{id}
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, [FromBody] Employee updated)
+    {
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
 
-            employees.Add(employee);
+        // Replace the whole entity (except the Id)
+        employee.Name = updated.Name;
+        employee.Position = updated.Position;
+        employee.Department = updated.Department;
+        employee.Salary = updated.Salary;
+        return NoContent();
+    }
 
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = employee.Id },
-                employee);
-        }
+    // PATCH: api/employees/{id}
+    // Allows partial update of an employee using EmployeePatchDto.
+    // Only properties supplied (non‑null) are updated.
+    [HttpPatch("{id}")]
+    public IActionResult Patch(int id, [FromBody] EmployeePatchDto patchDto)
+    {
+        if (patchDto == null)
+            return BadRequest();
 
-        [HttpPut("{id}")]
-        public IActionResult Update(int id, Employee employee)
-        {
-            var existing = employees.FirstOrDefault(x => x.Id == id);
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
 
-            if (existing == null)
-                return NotFound();
+        // Apply supplied fields – keep original values for null fields.
+        if (patchDto.Name != null)
+            employee.Name = patchDto.Name;
+        if (patchDto.Position != null)
+            employee.Position = patchDto.Position;
+        if (patchDto.Department != null)
+            employee.Department = patchDto.Department;
+        if (patchDto.Salary.HasValue)
+            employee.Salary = patchDto.Salary.Value;
 
-            existing.Name = employee.Name;
-            existing.Department = employee.Department;
-            existing.Salary = employee.Salary;
+        return NoContent();
+    }
 
-            return Ok(existing);
-        }
+    // DELETE: api/employees/{id}
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
 
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
-        {
-            var employee = employees.FirstOrDefault(x => x.Id == id);
-
-            if (employee == null)
-                return NotFound();
-
-            employees.Remove(employee);
-
-            return NoContent();
-        }
+        _employees.Remove(employee);
+        return NoContent();
     }
 }
