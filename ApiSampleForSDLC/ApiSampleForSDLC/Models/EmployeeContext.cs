@@ -1,23 +1,20 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace ApiSampleForSDLC.Models;
-
-public class EmployeeContext : DbContext
+namespace ApiSampleForSDLC.Models
 {
-    public EmployeeContext(DbContextOptions<EmployeeContext> options) : base(options) { }
-
-    public DbSet<Employee> Employees { get; set; } = null!;
-    public DbSet<Email> Emails { get; set; } = null!;
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    /// <summary>
+    /// Represents the EF Core context for the Employee domain.
+    /// The application stores data in‑memory (via InMemory provider) but the
+    /// context can be swapped for a relational provider without changing the
+    /// controller logic.
+    /// </summary>
+    public class EmployeeContext : DbContext
     {
-        base.OnModelCreating(modelBuilder);
+        public EmployeeContext(DbContextOptions<EmployeeContext> options)
+            : base(options)
+        {
+        }
 
-        // Configure one‑to‑many relationship between Employee and Email
-        modelBuilder.Entity<Email>()
-            .HasOne(e => e.Employee)
-            .WithMany(emp => emp.Emails)
-            .HasForeignKey(e => e.EmployeeId)
-            .OnDelete(DeleteBehavior.Cascade);
+        public DbSet<Employee> Employees { get; set; }
     }
 }
