@@ -1,82 +1,90 @@
-﻿using ApiSampleForSDLC.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.JsonPatch;
+using ApiSampleForSDLC.Models;
 
-namespace ApiSampleForSDLC.Controllers
+namespace ApiSampleForSDLC.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeesController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class EmployeesController : ControllerBase
+    // In‑memory store for demo purposes. In a real project this would be replaced by a DbContext.
+    private static readonly List<Employee> _employees = new();
+    private static int _nextId = 1;
+
+    // GET: api/employees
+    [HttpGet]
+    public ActionResult<IEnumerable<Employee>> GetAll()
     {
-        private static readonly List<Employee> employees = new()
+        return Ok(_employees);
+    }
+
+    // GET: api/employees/{id}
+    [HttpGet("{id}")]
+    public ActionResult<Employee> Get(int id)
     {
-        new Employee
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
+        return Ok(employee);
+    }
+
+    // POST: api/employees
+    [HttpPost]
+    public ActionResult<Employee> Create([FromBody] Employee employee)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        employee.Id = _nextId++;
+        _employees.Add(employee);
+        return CreatedAtAction(nameof(Get), new { id = employee.Id }, employee);
+    }
+
+    // DELETE: api/employees/{id}
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
+
+        _employees.Remove(employee);
+        return NoContent();
+    }
+
+    // PATCH: api/employees/{id}
+    // Supports JSON Patch (RFC 6902) for partial updates.
+    [HttpPatch("{id}")]
+    public IActionResult Patch(int id, [FromBody] JsonPatchDocument<EmployeePatchDto> patchDoc)
+    {
+        if (patchDoc == null)
+            return BadRequest("Patch document cannot be null.");
+
+        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        if (employee == null)
+            return NotFound();
+
+        // Map the current entity to a mutable DTO.
+        var employeeDto = new EmployeePatchDto
         {
-            Id = 1,
-            Name = "Rajan",
-            Department = ".NET",
-            Salary = 50000
-        }
-    };
+            Name = employee.Name,
+            Age = employee.Age,
+            Salary = employee.Salary
+        };
 
-        [HttpGet]
-        public IActionResult GetAll()
-        {
-            return Ok(employees);
-        }
+        // Apply the patch operations to the DTO.
+        patchDoc.ApplyTo(employeeDto, ModelState);
 
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
-        {
-            var employee = employees.FirstOrDefault(x => x.Id == id);
+        // Validate the patched DTO.
+        if (!TryValidateModel(employeeDto))
+            return ValidationProblem(ModelState);
 
-            if (employee == null)
-                return NotFound();
+        // Persist changes back to the entity.
+        employee.Name = employeeDto.Name;
+        employee.Age = employeeDto.Age;
+        employee.Salary = employeeDto.Salary;
 
-            return Ok(employee);
-        }
-
-        [HttpPost]
-        public IActionResult Create(Employee employee)
-        {
-            employee.Id = employees.Count == 0
-                ? 1
-                : employees.Max(x => x.Id) + 1;
-
-            employees.Add(employee);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = employee.Id },
-                employee);
-        }
-
-        [HttpPut("{id}")]
-        public IActionResult Update(int id, Employee employee)
-        {
-            var existing = employees.FirstOrDefault(x => x.Id == id);
-
-            if (existing == null)
-                return NotFound();
-
-            existing.Name = employee.Name;
-            existing.Department = employee.Department;
-            existing.Salary = employee.Salary;
-
-            return Ok(existing);
-        }
-
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
-        {
-            var employee = employees.FirstOrDefault(x => x.Id == id);
-
-            if (employee == null)
-                return NotFound();
-
-            employees.Remove(employee);
-
-            return NoContent();
-        }
+        return NoContent();
     }
 }
