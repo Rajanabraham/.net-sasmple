@@ -1,87 +1,113 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
 using ApiSampleForSDLC.Models;
 
-namespace ApiSampleForSDLC.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class EmployeesController : ControllerBase
+namespace ApiSampleForSDLC.Controllers
 {
-    private readonly EmployeeContext _context;
-
-    public EmployeesController(EmployeeContext context)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class EmployeesController : ControllerBase
     {
-        _context = context;
-    }
+        private readonly EmployeeContext _context;
 
-    // Existing actions (GET, POST, PUT, DELETE) are assumed to be present here.
-    // ------------------------------------------------------------
-    // PATCH: api/Employees/{id}
-    // ------------------------------------------------------------
-    /// <summary>
-    /// Partially updates an existing employee using a JSON Patch document.
-    /// </summary>
-    /// <param name="id">The identifier of the employee to update.</param>
-    /// <param name="patchDoc">The JSON Patch document describing the changes.</param>
-    /// <returns>NoContent if successful; appropriate error response otherwise.</returns>
-    [HttpPatch("{id}")]
-    public async Task<IActionResult> PatchEmployee(int id, [FromBody] JsonPatchDocument<EmployeePatchDto> patchDoc)
-    {
-        if (patchDoc == null)
+        public EmployeesController(EmployeeContext context)
         {
-            return BadRequest("Patch document cannot be null.");
+            _context = context;
         }
 
-        var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Id == id);
-        if (employee == null)
+        // GET: api/Employees
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Employee>>> GetAll()
         {
-            return NotFound();
+            return await _context.Employees.ToListAsync();
         }
 
-        // Map the entity to a mutable DTO
-        var employeeToPatch = new EmployeePatchDto
+        // GET: api/Employees/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Employee>> GetById(int id)
         {
-            FirstName = employee.FirstName,
-            LastName = employee.LastName,
-            Email = employee.Email,
-            Position = employee.Position,
-            Salary = employee.Salary
-        };
-
-        // Apply the patch to the DTO
-        patchDoc.ApplyTo(employeeToPatch, ModelState);
-
-        // Validate the patched DTO
-        TryValidateModel(employeeToPatch);
-        if (!ModelState.IsValid)
-        {
-            return ValidationProblem(ModelState);
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null)
+                return NotFound();
+            return employee;
         }
 
-        // Map the patched DTO back onto the entity
-        employee.FirstName = employeeToPatch.FirstName;
-        employee.LastName = employeeToPatch.LastName;
-        employee.Email = employeeToPatch.Email;
-        employee.Position = employeeToPatch.Position;
-        employee.Salary = employeeToPatch.Salary;
-
-        try
+        // POST: api/Employees
+        [HttpPost]
+        public async Task<ActionResult<Employee>> Create(Employee employee)
         {
+            _context.Employees.Add(employee);
             await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = employee.Id }, employee);
         }
-        catch (DbUpdateConcurrencyException)
+
+        // PUT: api/Employees/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, Employee employee)
         {
-            if (!EmployeeExists(id))
+            if (id != employee.Id)
+                return BadRequest();
+
+            _context.Entry(employee).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException) when (!EmployeeExists(id))
             {
                 return NotFound();
             }
-            throw;
+
+            return NoContent();
         }
 
-        return NoContent();
-    }
+        // PATCH: api/Employees/5
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] JsonPatchDocument<EmployeePatchDto> patchDoc)
+        {
+            if (patchDoc == null)
+                return BadRequest();
 
-    private bool EmployeeExists(int id) => _context.Employees.Any(e => e.Id == id);
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null)
+                return NotFound();
+
+            var employeeDto = new EmployeePatchDto
+            {
+                Name = employee.Name,
+                Age = employee.Age,
+                Department = employee.Department
+            };
+
+            patchDoc.ApplyTo(employeeDto, ModelState);
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            // map patched values back to entity
+            employee.Name = employeeDto.Name;
+            employee.Age = employeeDto.Age;
+            employee.Department = employeeDto.Department;
+
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE: api/Employees/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null)
+                return NotFound();
+
+            _context.Employees.Remove(employee);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        private bool EmployeeExists(int id) =>
+            _context.Employees.Any(e => e.Id == id);
+    }
 }
