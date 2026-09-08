@@ -1,75 +1,88 @@
-using System.Net;
-using System.Net.Http.Json;
-using System.Text;
-using Microsoft.AspNetCore.JsonPatch;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using ApiSampleForSDLC;
+using ApiSampleForSDLC.Controllers;
 using ApiSampleForSDLC.Models;
+using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
-namespace ApiSampleForSDLC.Tests;
-
-public class EmployeesControllerPatchTests : IClassFixture<WebApplicationFactory<Program>>
+namespace ApiSampleForSDLC.Tests
 {
-    private readonly WebApplicationFactory<Program> _factory;
-
-    public EmployeesControllerPatchTests(WebApplicationFactory<Program> factory)
+    public class EmployeesControllerTests
     {
-        // Configure the factory to use an in‑memory database for isolation.
-        _factory = factory.WithWebHostBuilder(builder =>
+        [Fact]
+        public void Patch_ExistingEmployee_ReturnsOkWithUpdatedFields()
         {
-            builder.ConfigureServices(services =>
+            // Arrange
+            var controller = new EmployeesController();
+            var patchDto = new EmployeePatchDto
             {
-                var descriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(DbContextOptions<EmployeeContext>));
-                if (descriptor != null) services.Remove(descriptor);
+                Salary = 75000,
+                Department = "Cloud & AI Architecture",
+                Email = "rajan.updated@example.com"
+            };
 
-                services.AddDbContext<EmployeeContext>(options =>
-                    options.UseInMemoryDatabase("InMemoryEmployeeDb"));
+            // Act
+            var result = controller.Patch(1, patchDto) as OkObjectResult;
 
-                // Build the service provider.
-                var sp = services.BuildServiceProvider();
-                using var scope = sp.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<EmployeeContext>();
-                db.Database.EnsureCreated();
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(200, result.StatusCode);
+            var updated = result.Value as Employee;
+            Assert.NotNull(updated);
+            Assert.Equal(75000, updated.Salary);
+            Assert.Equal("Cloud & AI Architecture", updated.Department);
+            Assert.Equal("rajan.updated@example.com", updated.Email);
+        }
 
-                // Seed a test employee.
-                db.Employees.Add(new Employee
-                {
-                    Id = 1,
-                    FirstName = "John",
-                    LastName = "Doe",
-                    Email = "john.doe@example.com",
-                    Position = "Developer",
-                    Salary = 80000
-                });
-                db.SaveChanges();
-            });
-        });
-    }
+        [Fact]
+        public void Patch_NonExistentEmployee_ReturnsNotFound()
+        {
+            // Arrange
+            var controller = new EmployeesController();
+            var patchDto = new EmployeePatchDto { Name = "Unknown Employee" };
 
-    [Fact]
-    public async Task PatchEmployee_UpdatesFirstName_ReturnsNoContent()
-    {
-        // Arrange
-        var client = _factory.CreateClient();
-        var patchDoc = new JsonPatchDocument<EmployeePatchDto>();
-        patchDoc.Replace(e => e.FirstName, "Jane");
-        var serializedPatch = JsonSerializer.Serialize(patchDoc);
-        var content = new StringContent(serializedPatch, Encoding.UTF8, "application/json-patch+json");
+            // Act
+            var result = controller.Patch(9999, patchDto) as NotFoundObjectResult;
 
-        // Act
-        var response = await client.PatchAsync("/api/employees/1", content);
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(404, result.StatusCode);
+        }
 
-        // Assert response status
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        [Fact]
+        public void Patch_NullPayload_ReturnsBadRequest()
+        {
+            // Arrange
+            var controller = new EmployeesController();
 
-        // Verify the employee was updated in the DB.
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<EmployeeContext>();
-        var updatedEmployee = await db.Employees.FirstAsync(e => e.Id == 1);
-        Assert.Equal("Jane", updatedEmployee.FirstName);
+            // Act
+            var result = controller.Patch(1, null!) as BadRequestObjectResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(400, result.StatusCode);
+        }
+
+        [Fact]
+        public void Update_WithEmailField_ReturnsSuccess()
+        {
+            // Arrange
+            var controller = new EmployeesController();
+            var employee = new Employee
+            {
+                Id = 1,
+                Name = "Rajan",
+                Department = ".NET",
+                Salary = 60000,
+                Email = "rajan.developer@example.com"
+            };
+
+            // Act
+            var result = controller.Update(1, employee) as OkObjectResult;
+
+            // Assert
+            Assert.NotNull(result);
+            var updated = result.Value as Employee;
+            Assert.NotNull(updated);
+            Assert.Equal("rajan.developer@example.com", updated.Email);
+        }
     }
 }
