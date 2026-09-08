@@ -1,5 +1,5 @@
-using ApiSampleForSDLC.Models;
 using Microsoft.EntityFrameworkCore;
+using ApiSampleForSDLC.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,19 +8,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register the DbContext. Uses a SQL Server connection string defined in appsettings.json.
-var connectionString = builder.Configuration.GetConnectionString("EmployeeDatabase");
-if (string.IsNullOrWhiteSpace(connectionString))
-{
-    // Fallback to InMemory for local development / tests.
-    builder.Services.AddDbContext<EmployeeContext>(options =>
-        options.UseInMemoryDatabase("EmployeeDb"));
-}
-else
-{
-    builder.Services.AddDbContext<EmployeeContext>(options =>
-        options.UseSqlServer(connectionString));
-}
+// Register the EmployeeContext – using the InMemory provider so no external DB is required.
+builder.Services.AddDbContext<EmployeeContext>(options =>
+    options.UseInMemoryDatabase("EmployeeDb"));
 
 var app = builder.Build();
 
@@ -31,7 +21,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
