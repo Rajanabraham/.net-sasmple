@@ -66,6 +66,30 @@ namespace ApiSampleForSDLC.Controllers
             return Ok(existing);
         }
 
+        
+        [HttpPatch("{id}")]
+        public IActionResult Patch(int id, [FromBody] EmployeePatchDto patchDto)
+        {
+            if (patchDto == null)
+                return BadRequest(new { message = "Patch payload cannot be null." });
+
+            var existing = employees.FirstOrDefault(x => x.Id == id);
+
+            if (existing == null)
+                return NotFound(new { message = $"Employee with ID {id} not found." });
+
+            if (!string.IsNullOrWhiteSpace(patchDto.Name))
+                existing.Name = patchDto.Name;
+
+            if (!string.IsNullOrWhiteSpace(patchDto.Department))
+                existing.Department = patchDto.Department;
+
+            if (patchDto.Salary.HasValue)
+                existing.Salary = patchDto.Salary.Value;
+
+            return Ok(existing);
+        }
+
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
